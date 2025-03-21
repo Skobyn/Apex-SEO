@@ -1,6 +1,8 @@
 name = "apex-mcp"
 main = "src/index.ts"
 compatibility_date = "2023-12-01"
+node_compat = true
+compatibility_flags = ["nodejs_compat"]
 
 # Add your KV namespace ID from the command output
 kv_namespaces = [
@@ -12,4 +14,11 @@ DATAFORSEO_USERNAME = "sbenson@aiexecutiveleader.com"
 DATAFORSEO_API_KEY = "778f7e62b3cded44"
 
 # Add Cloudflare account ID
-account_id = "82dca94f85e8d105b6f2af1f8efd3f85" 
+account_id = "82dca94f85e8d105b6f2af1f8efd3f85"
+
+[build]
+command = "npm run build"
+
+[env.production]
+workers_dev = true
+routes = [] 
