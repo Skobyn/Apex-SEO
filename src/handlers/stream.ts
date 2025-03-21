@@ -8,15 +8,13 @@
 import { corsErrorResponse } from '../utils/cors';
 import { Env } from '../index';
 import { MCPMessage } from '../types';
+import { Request, ExecutionContext } from '@cloudflare/workers-types';
+import '../types/overrides'; // Import our type overrides
 
 /**
  * Handle SSE stream requests
  */
-export async function handleMCPStream(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
+export async function handleStream(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   // Only accept GET requests
   if (request.method !== 'GET') {
     return corsErrorResponse('Method not allowed', 405);
@@ -24,23 +22,23 @@ export async function handleMCPStream(
 
   try {
     // Get client ID from headers or query parameters
-    const clientId = request.headers.get('X-Client-ID') || 
-                     new URL(request.url).searchParams.get('client_id') || 
-                     'anonymous';
+    const clientId = request.headers.get("X-Client-ID") || 
+                   new URL(request.url).searchParams.get("client_id") || 
+                   "anonymous";
 
     // Set up SSE headers
     const headers = new Headers({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
     });
 
     // Create a transformer to format messages according to SSE spec
     const encoder = new TextEncoder();
     
     const transformStream = new TransformStream({
-      transform(message: MCPMessage, controller) {
+      transform(message: any, controller) {
         // Format as SSE event
         const event = `event: message\ndata: ${JSON.stringify(message)}\n\n`;
         controller.enqueue(encoder.encode(event));
@@ -51,13 +49,13 @@ export async function handleMCPStream(
     const stream = new ReadableStream({
       start(controller) {
         // Send initial connected message
-        const initialMessage: MCPMessage = {
-          type: 'connected',
+        const initialMessage = {
+          type: "connected",
           data: {
             clientId,
             timestamp: new Date().toISOString(),
-            server: 'apex-mcp-server',
-            protocol: 'mcp-v1'
+            server: "apex-mcp-server",
+            protocol: "mcp-v1"
           }
         };
         
@@ -65,8 +63,8 @@ export async function handleMCPStream(
         
         // Set up a heartbeat to keep the connection alive
         const heartbeatInterval = setInterval(() => {
-          const heartbeat: MCPMessage = {
-            type: 'heartbeat',
+          const heartbeat = {
+            type: "heartbeat",
             data: {
               timestamp: new Date().toISOString()
             }
@@ -79,7 +77,13 @@ export async function handleMCPStream(
           (async () => {
             // Wait for client to disconnect
             try {
-              await request.signal.finished;
+              await new Promise((resolve) => {
+                const abortController = new AbortController();
+                request.signal.addEventListener('abort', () => {
+                  resolve(true);
+                  abortController.abort();
+                });
+              });
             } catch (error) {
               // Request was aborted
             } finally {
@@ -171,7 +175,7 @@ export async function handleMCPStream(
       },
       
       cancel() {
-        console.log(`Stream for client ${clientId} was cancelled`);
+        console.log(`Stream for client cancelled`);
       }
     });
 

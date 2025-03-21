@@ -6,6 +6,8 @@
  */
 
 import { ToolDefinition } from '../types';
+import { ExecutionContext } from '@cloudflare/workers-types';
+import * as DataForSEO from '../services/dataforseo';
 
 // Export the complete tools registry
 export const toolsRegistry: Record<string, ToolDefinition> = {
@@ -234,4 +236,92 @@ export function validateToolArguments(
     valid: errors.length === 0,
     errors: errors.length > 0 ? errors : undefined
   };
+}
+
+// Define context type for tool execution
+interface ToolExecutionContext {
+  env: Env;
+  ctx: ExecutionContext;
+  clientId: string;
+}
+
+// Define tool schema
+interface Tool {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required: string[];
+  };
+}
+
+// Get all available tools
+export function getAllTools(): Tool[] {
+  return [
+    {
+      name: 'dataforseo_serp',
+      description: 'Search for results in search engines',
+      parameters: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string', description: 'Search query' },
+          location_code: { type: 'number', description: 'Location code (default: 2840 for US)' },
+          language_code: { type: 'string', description: 'Language code (default: en)' },
+          device: { type: 'string', description: 'Device type (desktop or mobile)' }
+        },
+        required: ['keyword']
+      }
+    },
+    {
+      name: 'dataforseo_keywords_data',
+      description: 'Get keyword data and suggestions',
+      parameters: {
+        type: 'object',
+        properties: {
+          keywords: { 
+            type: 'array', 
+            items: { type: 'string' },
+            description: 'List of keywords to analyze'
+          },
+          location_code: { type: 'number', description: 'Location code (default: 2840 for US)' },
+          language_code: { type: 'string', description: 'Language code (default: en)' }
+        },
+        required: ['keywords']
+      }
+    },
+    {
+      name: 'dataforseo_backlinks',
+      description: 'Get backlink data for a domain',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'Target domain or URL' },
+          limit: { type: 'number', description: 'Maximum number of results (default: 100)' }
+        },
+        required: ['target']
+      }
+    }
+  ];
+}
+
+// Execute a tool call
+export async function executeToolCall(
+  toolName: string,
+  parameters: Record<string, any>,
+  context: ToolExecutionContext
+): Promise<any> {
+  switch (toolName) {
+    case 'dataforseo_serp':
+      return await DataForSEO.getSerpResults(parameters, context.env);
+      
+    case 'dataforseo_keywords_data':
+      return await DataForSEO.getKeywordsDataAdvanced(parameters, context.env);
+      
+    case 'dataforseo_backlinks':
+      return await DataForSEO.getBacklinksAdvanced(parameters, context.env);
+      
+    default:
+      throw new Error(`Unknown tool: ${toolName}`);
+  }
 } 

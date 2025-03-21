@@ -8,6 +8,7 @@
 import { corsJsonResponse, corsErrorResponse } from '../utils/cors';
 import { toolsRegistry } from '../tools';
 import { Env } from '../index';
+import '../types/overrides'; // Import our type overrides
 
 /**
  * Handle discovery requests from MCP clients

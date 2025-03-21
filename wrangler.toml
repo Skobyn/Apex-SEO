@@ -1,12 +1,13 @@
 name = "apex-mcp"
 main = "src/index.ts"
 compatibility_date = "2023-12-01"
-node_compat = true
+# node_compat = true  # Removed conflicting setting
 compatibility_flags = ["nodejs_compat"]
 
 # Add your KV namespace ID from the command output
 kv_namespaces = [
-  { binding = "MCP_STORAGE", id = "921cfad3e1b74239bbe9b2d0edfbf450" }
+  { binding = "MCP_STORAGE", id = "921cfad3e1b74239bbe9b2d0edfbf450" },
+  { binding = "CONTEXT_DATA", id = "921cfad3e1b74239bbe9b2d0edfbf450" }
 ]
 
 [vars]

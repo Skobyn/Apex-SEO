@@ -263,4 +263,137 @@ export async function getDomainMetrics(
     { tasks }, 
     env.DATAFORSEO_API_KEY
   );
+}
+
+interface DataForSEOResponse {
+  status_code: number;
+  status_message?: string;
+  tasks?: Array<{
+    result?: any[];
+  }>;
+}
+
+export async function getSerpResults(parameters: any, env: Env): Promise<any> {
+  const { keyword, location_code = 2840, language_code = "en", device = "desktop" } = parameters;
+  
+  const endpoint = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced";
+  
+  const requestData = [{
+    keyword,
+    location_code,
+    language_code,
+    device,
+    os: "windows"
+  }];
+  
+  try {
+    const response = await makeDataForSEORequest(endpoint, requestData, env);
+    
+    return {
+      success: true,
+      results: response.tasks?.[0]?.result || [],
+      metadata: {
+        keyword,
+        location_code,
+        language_code,
+        device
+      }
+    };
+  } catch (error) {
+    console.error("Error in SERP API call:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+export async function getKeywordsDataAdvanced(parameters: any, env: Env): Promise<any> {
+  const { keywords, location_code = 2840, language_code = "en" } = parameters;
+  
+  const endpoint = "https://api.dataforseo.com/v3/keywords_data/google/search_volume/live";
+  
+  const requestData = [{
+    keywords,
+    location_code,
+    language_code
+  }];
+  
+  try {
+    const response = await makeDataForSEORequest(endpoint, requestData, env);
+    
+    return {
+      success: true,
+      results: response.tasks?.[0]?.result || [],
+      metadata: {
+        keywords,
+        location_code,
+        language_code
+      }
+    };
+  } catch (error) {
+    console.error("Error in Keywords Data API call:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+export async function getBacklinksAdvanced(parameters: any, env: Env): Promise<any> {
+  const { target, limit = 100 } = parameters;
+  
+  const endpoint = "https://api.dataforseo.com/v3/backlinks/summary/live";
+  
+  const requestData = [{
+    target,
+    limit
+  }];
+  
+  try {
+    const response = await makeDataForSEORequest(endpoint, requestData, env);
+    
+    return {
+      success: true,
+      results: response.tasks?.[0]?.result || [],
+      metadata: {
+        target,
+        limit
+      }
+    };
+  } catch (error) {
+    console.error("Error in Backlinks API call:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+async function makeDataForSEORequest(endpoint: string, data: any[], env: Env): Promise<DataForSEOResponse> {
+  const username = env.DATAFORSEO_USERNAME;
+  const apiKey = env.DATAFORSEO_API_KEY;
+  
+  if (!username || !apiKey) {
+    throw new Error("DataForSEO credentials not configured");
+  }
+  
+  const auth = btoa(`${username}:${apiKey}`);
+  
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${auth}`
+    },
+    body: JSON.stringify(data)
+  });
+  
+  const result = await response.json() as DataForSEOResponse;
+  
+  if (!result.status_code || result.status_code !== 20000) {
+    throw new Error(`DataForSEO API error: ${result.status_message || "Unknown error"}`);
+  }
+  
+  return result;
 } 

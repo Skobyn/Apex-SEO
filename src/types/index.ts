@@ -32,6 +32,8 @@ export interface ToolDefinition {
 // Tool Call Request Interface
 export interface ToolCallRequest {
   clientId: string;
+  name: string;
+  parameters: Record<string, any>;
   params: {
     name: string;
     arguments: Record<string, any>;

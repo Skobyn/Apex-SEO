@@ -5,52 +5,81 @@
  */
 
 import { corsJsonResponse, corsErrorResponse } from '../utils/cors';
-import { validateToolArguments } from '../tools';
+import { validateToolArguments, getAllTools, executeToolCall } from '../tools';
 import { Env } from '../index';
-import { ToolCallRequest, ToolResponse } from '../types';
+import { ToolCallRequest, ToolResponse, KeywordResearchRequest, ContentAnalysisRequest, OnPageRequest } from '../types';
 import * as DataForSEO from '../services/dataforseo';
+import { Request, ExecutionContext } from '@cloudflare/workers-types';
+import '../types/overrides'; // Import our type overrides
 
 /**
  * Handle tool call requests
  */
-export async function handleToolCall(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  // Only accept POST requests
-  if (request.method !== 'POST') {
-    return corsErrorResponse('Method not allowed', 405);
+export async function handleToolCall(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
   }
 
   try {
-    // Parse the request body
-    const body = await request.json() as ToolCallRequest;
-
-    // Validate request format
-    if (!body.params || !body.params.name || !body.params.arguments) {
-      return corsErrorResponse('Invalid request format. Missing required fields: params.name, params.arguments', 400);
-    }
-
-    const { name, arguments: args } = body.params;
-
-    // Validate tool arguments
-    const validation = validateToolArguments(name, args);
-    if (!validation.valid) {
-      return corsErrorResponse(`Invalid arguments: ${validation.errors?.join(', ')}`, 400);
-    }
-
-    // Execute the requested tool
-    const result = await executeTool(name, args, env, ctx);
+    const data = await request.json() as ToolCallRequest;
     
-    return corsJsonResponse({
-      result: result.result,
-      metadata: result.metadata
+    // Validate request
+    if (!data.name || !data.parameters) {
+      return new Response(JSON.stringify({ 
+        error: "Invalid request. 'name' and 'parameters' are required."
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    // Get client ID
+    const clientId = request.headers.get("X-Client-ID") || 'anonymous';
+    
+    // Execute the tool call
+    const result = await executeToolCall(data.name, data.parameters, {
+      env,
+      ctx,
+      clientId
+    });
+    
+    return new Response(JSON.stringify(result), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   } catch (error) {
-    console.error(`Error in tool call handler: ${error}`);
-    return corsErrorResponse(`Failed to process tool call: ${error}`, 500);
+    console.error("Error in tool call:", error);
+    return new Response(JSON.stringify({ 
+      error: "Failed to execute tool call", 
+      details: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
+}
+
+/**
+ * Handle tool discovery requests
+ */
+export async function handleToolDiscovery(request: Request, env: Env): Promise<Response> {
+  // Get available tools
+  const tools = getAllTools();
+
+  return new Response(JSON.stringify({ tools }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }
 
 /**
@@ -86,7 +115,7 @@ async function executeTool(
 
       // Keyword Data Tools
       case 'keywords_data': {
-        const data = await DataForSEO.getKeywordsData(args, env);
+        const data = await DataForSEO.getKeywordsDataAdvanced(args, env);
         return {
           result: data,
           metadata: {
@@ -98,7 +127,7 @@ async function executeTool(
       }
 
       case 'keyword_ideas': {
-        const data = await DataForSEO.getKeywordIdeas(args, env);
+        const data = await DataForSEO.getKeywordIdeas(args as KeywordResearchRequest, env);
         return {
           result: data,
           metadata: {
@@ -111,7 +140,7 @@ async function executeTool(
 
       // Content Analysis Tools
       case 'analyze_content': {
-        const data = await DataForSEO.analyzeContent(args, env);
+        const data = await DataForSEO.analyzeContent(args as ContentAnalysisRequest, env);
         return {
           result: data,
           metadata: {
@@ -124,7 +153,7 @@ async function executeTool(
 
       // Backlinks Tools
       case 'backlinks_summary': {
-        const data = await DataForSEO.getBacklinks(args, env);
+        const data = await DataForSEO.getBacklinksAdvanced(args, env);
         return {
           result: data,
           metadata: {
@@ -137,7 +166,7 @@ async function executeTool(
 
       // On-Page Tools
       case 'analyze_onpage': {
-        const data = await DataForSEO.analyzeOnPage(args, env);
+        const data = await DataForSEO.analyzeOnPage(args as OnPageRequest, env);
         return {
           result: data,
           metadata: {

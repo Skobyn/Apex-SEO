@@ -5,6 +5,9 @@
  * to allow browsers from different origins to access our API.
  */
 
+import { Response } from '@cloudflare/workers-types';
+import '../types/overrides'; // Import our type overrides
+
 // Default CORS headers for responses
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,59 +19,70 @@ export const corsHeaders = {
 /**
  * Handle CORS preflight requests (OPTIONS method)
  */
-export function handleCORS(): Response {
+export function handleCORS(request: Request): any {
   return new Response(null, {
-    status: 204, // No content
-    headers: corsHeaders,
-  });
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-Client-ID",
+      "Access-Control-Max-Age": "86400",
+    },
+  }) as any;
 }
 
 /**
  * Add CORS headers to an existing Response
  */
-export function addCorsHeaders(response: Response): Response {
-  const newHeaders = new Headers(response.headers);
+export function addCorsHeaders(response: Response): any {
+  // Create a new headers object with CORS headers
+  const headersObj = {} as Record<string, string>;
   
+  // Copy all existing headers
+  for (const [key, value] of Object.entries(Object.fromEntries(response.headers))) {
+    headersObj[key] = value;
+  }
+  
+  // Add CORS headers
   Object.entries(corsHeaders).forEach(([key, value]) => {
-    newHeaders.set(key, value);
+    headersObj[key] = value;
   });
   
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: newHeaders,
-  });
+    headers: headersObj,
+  }) as any;
 }
 
 /**
  * Create a JSON response with CORS headers
  */
-export function corsJsonResponse(data: any, status: number = 200): Response {
+export function corsJsonResponse(data: any, status: number = 200): any {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       ...corsHeaders,
       "Content-Type": "application/json",
     },
-  });
+  }) as any;
 }
 
 /**
  * Create a text response with CORS headers
  */
-export function corsTextResponse(text: string, status: number = 200): Response {
+export function corsTextResponse(text: string, status: number = 200): any {
   return new Response(text, {
     status,
     headers: {
       ...corsHeaders,
       "Content-Type": "text/plain",
     },
-  });
+  }) as any;
 }
 
 /**
  * Create an error response with CORS headers
  */
-export function corsErrorResponse(message: string, status: number = 400): Response {
+export function corsErrorResponse(message: string, status: number = 400): any {
   return corsJsonResponse({ error: message }, status);
 } 
