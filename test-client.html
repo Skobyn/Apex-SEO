@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex MCP Test Client</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .logs {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #eee;
+            padding: 10px;
+            font-family: monospace;
+            border-radius: 3px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px;
+            border-radius: 2px;
+        }
+        .log-entry:nth-child(odd) {
+            background-color: rgba(0,0,0,0.05);
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .tools {
+            margin-top: 15px;
+        }
+        .tool-item {
+            cursor: pointer;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            background-color: white;
+        }
+        .tool-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Apex MCP Test Client</h1>
+    
+    <div class="container">
+        <div>
+            <div class="panel">
+                <h2>Connection Settings</h2>
+                <label for="serverUrl">MCP Server URL:</label>
+                <input type="text" id="serverUrl" value="http://localhost:8787/v1/stream" />
+                
+                <label for="clientId">Client ID:</label>
+                <input type="text" id="clientId" value="test-client-1" />
+                
+                <div style="margin-top: 10px;">
+                    <button id="connectBtn">Connect</button>
+                    <button id="disconnectBtn" disabled>Disconnect</button>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>Tool Discovery</h2>
+                <button id="discoverBtn" disabled>Discover Tools</button>
+                <div class="tools" id="toolsList"></div>
+            </div>
+            
+            <div class="panel">
+                <h2>Tool Call</h2>
+                <div id="toolCallForm">
+                    <label for="toolSelect">Select Tool:</label>
+                    <select id="toolSelect" disabled>
+                        <option value="">-- Select a tool --</option>
+                    </select>
+                    
+                    <label for="toolParams">Parameters (JSON):</label>
+                    <textarea id="toolParams" rows="5" disabled>{}</textarea>
+                    
+                    <button id="callToolBtn" disabled>Call Tool</button>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <div class="panel">
+                <h2>Context Submission</h2>
+                <label for="contextContent">Content:</label>
+                <textarea id="contextContent" rows="5" placeholder="Enter context content..."></textarea>
+                
+                <label for="contextMetadata">Metadata (JSON):</label>
+                <textarea id="contextMetadata" rows="3">{}</textarea>
+                
+                <button id="submitContextBtn" disabled>Submit Context</button>
+            </div>
+            
+            <div class="panel">
+                <h2>Event Logs</h2>
+                <div class="logs" id="eventLogs"></div>
+                <button id="clearLogsBtn">Clear Logs</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let discoveredTools = [];
+        
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const discoverBtn = document.getElementById('discoverBtn');
+        const toolsList = document.getElementById('toolsList');
+        const toolSelect = document.getElementById('toolSelect');
+        const toolParams = document.getElementById('toolParams');
+        const callToolBtn = document.getElementById('callToolBtn');
+        const submitContextBtn = document.getElementById('submitContextBtn');
+        const eventLogs = document.getElementById('eventLogs');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const serverUrl = document.getElementById('serverUrl');
+        const clientId = document.getElementById('clientId');
+        const contextContent = document.getElementById('contextContent');
+        const contextMetadata = document.getElementById('contextMetadata');
+        
+        // Event Listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        discoverBtn.addEventListener('click', discoverTools);
+        callToolBtn.addEventListener('click', callTool);
+        submitContextBtn.addEventListener('click', submitContext);
+        clearLogsBtn.addEventListener('click', () => eventLogs.innerHTML = '');
+        
+        // Connect to SSE Stream
+        function connect() {
+            const url = new URL(serverUrl.value);
+            url.searchParams.append('client_id', clientId.value);
+            
+            logEvent('Connecting to ' + url.toString());
+            eventSource = new EventSource(url.toString());
+            
+            eventSource.addEventListener('message', function(event) {
+                const data = JSON.parse(event.data);
+                logEvent('Received: ' + JSON.stringify(data));
+                
+                if (data.type === 'connected') {
+                    updateConnectionState(true);
+                }
+            });
+            
+            eventSource.onerror = function(err) {
+                logEvent('Connection error', 'error');
+                disconnect();
+            };
+        }
+        
+        // Disconnect from SSE Stream
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                logEvent('Disconnected from server');
+                updateConnectionState(false);
+            }
+        }
+        
+        // Discover Available Tools
+        function discoverTools() {
+            fetch(serverUrl.value.replace('/stream', '/tools'))
+                .then(response => response.json())
+                .then(data => {
+                    discoveredTools = data.tools || [];
+                    logEvent('Discovered ' + discoveredTools.length + ' tools');
+                    
+                    // Clear tools list and select
+                    toolsList.innerHTML = '';
+                    toolSelect.innerHTML = '<option value="">-- Select a tool --</option>';
+                    
+                    // Populate tools list and select
+                    discoveredTools.forEach(tool => {
+                        const toolItem = document.createElement('div');
+                        toolItem.className = 'tool-item';
+                        toolItem.textContent = tool.name + ': ' + tool.description;
+                        toolItem.addEventListener('click', () => {
+                            toolSelect.value = tool.name;
+                            toolParams.value = JSON.stringify(tool.parameters.properties || {}, null, 2);
+                        });
+                        toolsList.appendChild(toolItem);
+                        
+                        const option = document.createElement('option');
+                        option.value = tool.name;
+                        option.textContent = tool.name;
+                        toolSelect.appendChild(option);
+                    });
+                    
+                    toolSelect.disabled = false;
+                    toolParams.disabled = false;
+                    callToolBtn.disabled = false;
+                })
+                .catch(error => {
+                    logEvent('Error discovering tools: ' + error.message, 'error');
+                });
+        }
+        
+        // Call Selected Tool
+        function callTool() {
+            const selectedTool = toolSelect.value;
+            if (!selectedTool) {
+                logEvent('Please select a tool', 'error');
+                return;
+            }
+            
+            try {
+                const params = JSON.parse(toolParams.value);
+                
+                fetch(serverUrl.value.replace('/stream', '/tools/call'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Client-ID': clientId.value
+                    },
+                    body: JSON.stringify({
+                        name: selectedTool,
+                        parameters: params
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    logEvent('Tool call response: ' + JSON.stringify(data));
+                })
+                .catch(error => {
+                    logEvent('Error calling tool: ' + error.message, 'error');
+                });
+            } catch (error) {
+                logEvent('Invalid JSON parameters: ' + error.message, 'error');
+            }
+        }
+        
+        // Submit Context
+        function submitContext() {
+            try {
+                const metadata = JSON.parse(contextMetadata.value);
+                
+                fetch(serverUrl.value.replace('/stream', '/context'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        clientId: clientId.value,
+                        content: contextContent.value,
+                        metadata: metadata
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    logEvent('Context submission response: ' + JSON.stringify(data));
+                })
+                .catch(error => {
+                    logEvent('Error submitting context: ' + error.message, 'error');
+                });
+            } catch (error) {
+                logEvent('Invalid JSON metadata: ' + error.message, 'error');
+            }
+        }
+        
+        // Update UI based on connection state
+        function updateConnectionState(connected) {
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            discoverBtn.disabled = !connected;
+            submitContextBtn.disabled = !connected;
+        }
+        
+        // Log events to the UI
+        function logEvent(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            if (type === 'error') {
+                entry.style.color = 'red';
+            }
+            eventLogs.appendChild(entry);
+            eventLogs.scrollTop = eventLogs.scrollHeight;
+        }
+    </script>
+</body>
+</html> 

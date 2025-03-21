@@ -1,0 +1,27 @@
+{
+  "name": "apex-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for SEO APIs with Cloudflare Workers",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler publish",
+    "deploy": "wrangler publish",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "sse",
+    "seo",
+    "cloudflare",
+    "workers",
+    "dataforseo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250320.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.3.0"
+  }
+}

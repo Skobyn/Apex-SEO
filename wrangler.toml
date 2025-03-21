@@ -1,0 +1,15 @@
+name = "apex-mcp"
+main = "src/index.ts"
+compatibility_date = "2023-12-01"
+
+# Add your KV namespace ID from the command output
+kv_namespaces = [
+  { binding = "MCP_STORAGE", id = "921cfad3e1b74239bbe9b2d0edfbf450" }
+]
+
+[vars]
+DATAFORSEO_USERNAME = "sbenson@aiexecutiveleader.com"
+DATAFORSEO_API_KEY = "778f7e62b3cded44"
+
+# Add Cloudflare account ID
+account_id = "82dca94f85e8d105b6f2af1f8efd3f85" 

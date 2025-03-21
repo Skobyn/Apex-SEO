@@ -1,0 +1,21 @@
+name = "apex-mcp"
+main = "src/index.ts"
+compatibility_date = "2025-03-21"
+
+# Configure KV namespace for storing context data
+# This will need to be created with `wrangler kv:namespace create "CONTEXT_DATA"`
+# Then update with the ID from the output
+kv_namespaces = [
+  { binding = "CONTEXT_DATA", id = "YOUR_KV_ID_HERE" }
+]
+
+# Add environment variables for API keys (to be configured at deploy time)
+[vars]
+DATAFORSEO_API_KEY = "YOUR_DATAFORSEO_API_KEY"
+
+[triggers]
+crons = []
+
+# Development settings
+[dev]
+port = 8787 

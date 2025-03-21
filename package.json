@@ -1,0 +1,28 @@
+{
+  "name": "apex-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for DataForSEO API integration",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler publish",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "seo",
+    "dataforseo",
+    "cloudflare",
+    "workers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "itty-router": "^3.0.12"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231025.0",
+    "typescript": "^5.0.4",
+    "wrangler": "^3.0.0"
+  }
+} 
