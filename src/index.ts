@@ -6,12 +6,214 @@
  */
 
 import { KVNamespace } from '@cloudflare/workers-types';
+import { ToolDefinition } from './types';
 
 export interface Env {
   MCP_STORAGE: KVNamespace;
   CONTEXT_DATA: KVNamespace;
   DATAFORSEO_USERNAME: string;
   DATAFORSEO_API_KEY: string;
+}
+
+// Explicitly define all available tools
+function getAllTools(): ToolDefinition[] {
+  return [
+    // SERP Analysis Tools
+    {
+      name: 'keyword_rankings',
+      description: 'Check keyword rankings for a domain in search results',
+      parameters: {
+        type: 'object',
+        properties: {
+          domain: {
+            type: 'string',
+            description: 'The domain to check rankings for'
+          },
+          keywords: {
+            type: 'array',
+            items: {
+              type: 'string'
+            },
+            description: 'List of keywords to check'
+          },
+          location_code: {
+            type: 'number',
+            description: 'Location code (default: 2840 for US)'
+          },
+          language_code: {
+            type: 'string',
+            description: 'Language code (default: en)'
+          }
+        },
+        required: ['domain', 'keywords']
+      }
+    },
+    
+    // Keyword Data Tools
+    {
+      name: 'keywords_data',
+      description: 'Get search volume and metrics for a list of keywords',
+      parameters: {
+        type: 'object',
+        properties: {
+          keywords: {
+            type: 'array',
+            items: {
+              type: 'string'
+            },
+            description: 'List of keywords to get data for'
+          },
+          location_code: {
+            type: 'number',
+            description: 'Location code (default: 2840 for US)'
+          },
+          language_code: {
+            type: 'string',
+            description: 'Language code (default: en)'
+          }
+        },
+        required: ['keywords']
+      }
+    },
+    
+    {
+      name: 'keyword_ideas',
+      description: 'Get related keyword ideas and suggestions for a seed keyword',
+      parameters: {
+        type: 'object',
+        properties: {
+          keyword: {
+            type: 'string',
+            description: 'Seed keyword to get ideas for'
+          },
+          location_code: {
+            type: 'number',
+            description: 'Location code (default: 2840 for US)'
+          },
+          language_code: {
+            type: 'string',
+            description: 'Language code (default: en)'
+          }
+        },
+        required: ['keyword']
+      }
+    },
+    
+    // Content Analysis Tools
+    {
+      name: 'analyze_content',
+      description: 'Analyze content for SEO optimization',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'URL of the content to analyze'
+          },
+          keyword: {
+            type: 'string',
+            description: 'Target keyword for the content'
+          }
+        },
+        required: ['url']
+      }
+    },
+    
+    // Backlinks Tools
+    {
+      name: 'backlinks_summary',
+      description: 'Get backlink summary data for a domain or URL',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: {
+            type: 'string',
+            description: 'Domain or URL to analyze'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results to return (default: 100)'
+          }
+        },
+        required: ['target']
+      }
+    },
+    
+    // On-Page Tools
+    {
+      name: 'analyze_onpage',
+      description: 'Analyze on-page SEO factors for a domain',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: {
+            type: 'string',
+            description: 'Domain or URL to analyze'
+          },
+          max_crawl_pages: {
+            type: 'number',
+            description: 'Maximum number of pages to crawl (default: 10)'
+          }
+        },
+        required: ['target']
+      }
+    },
+    
+    // Rank Tracking Tools
+    {
+      name: 'track_keywords',
+      description: 'Track keyword position history for a domain',
+      parameters: {
+        type: 'object',
+        properties: {
+          domain: {
+            type: 'string',
+            description: 'Domain to track keywords for'
+          },
+          keywords: {
+            type: 'array',
+            items: {
+              type: 'string'
+            },
+            description: 'List of keywords to track'
+          }
+        },
+        required: ['domain', 'keywords']
+      }
+    },
+    
+    // Competitor Research Tools
+    {
+      name: 'find_competitors',
+      description: 'Find competitors for a domain',
+      parameters: {
+        type: 'object',
+        properties: {
+          domain: {
+            type: 'string',
+            description: 'Domain to find competitors for'
+          }
+        },
+        required: ['domain']
+      }
+    },
+    
+    // Domain Analysis Tools
+    {
+      name: 'domain_metrics',
+      description: 'Get SEO metrics for a domain',
+      parameters: {
+        type: 'object',
+        properties: {
+          domain: {
+            type: 'string',
+            description: 'Domain to get metrics for'
+          }
+        },
+        required: ['domain']
+      }
+    }
+  ];
 }
 
 export default {
@@ -52,24 +254,28 @@ export default {
 
       // Tool discovery
       if (path === "/v1/tools") {
-        return new Response(JSON.stringify({ 
-          tools: [
-            {
-              name: "dataforseo_serp",
-              description: "Search for results in search engines",
-              parameters: {
-                type: "object",
-                properties: {
-                  keyword: { type: "string", description: "Search query" },
-                  location_code: { type: "number", description: "Location code (default: 2840 for US)" }
-                },
-                required: ["keyword"]
-              }
-            }
-          ] 
-        }), {
+        // Get all the tools from our explicit list
+        const tools = getAllTools().map((tool: ToolDefinition) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: {
+            type: tool.parameters.type,
+            properties: tool.parameters.properties,
+            required: tool.parameters.required || []
+          }
+        }));
+        
+        console.log('Exposing tools:', tools.map((t: any) => t.name).join(', '));
+        console.log('Tools count:', tools.length);
+        
+        return new Response(JSON.stringify({ tools }), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
+      }
+      
+      // Tool execution endpoint
+      if (path === "/v1/tools/execute" && request.method === "POST") {
+        return handleToolExecution(request, env, ctx);
       }
 
       // Default response
@@ -197,6 +403,77 @@ async function handleContext(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify({ 
       error: "Failed to process context data", 
       details: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+}
+
+// Handle tool execution
+async function handleToolExecution(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  try {
+    const data = await request.json() as any;
+    
+    // Validate required fields
+    if (!data.clientId || !data.name) {
+      return new Response(JSON.stringify({ 
+        error: "Missing required fields: clientId and name are required" 
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+    
+    const { clientId, name, parameters } = data;
+    
+    // Get the explicit list of tools
+    const allTools = getAllTools();
+    const toolDef = allTools.find((tool: ToolDefinition) => tool.name === name);
+    
+    // Check if the tool exists
+    if (!toolDef) {
+      return new Response(JSON.stringify({ 
+        error: `Tool "${name}" not found` 
+      }), {
+        status: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+    
+    // Execute the tool
+    const toolContext = { clientId, env, ctx };
+    
+    // Import the tool execution function dynamically
+    const { executeToolCall } = await import('./tools');
+    const result = await executeToolCall(name, parameters || {}, toolContext);
+    
+    return new Response(JSON.stringify({
+      success: true,
+      result,
+      metadata: {
+        tool: name,
+        timestamp: new Date().toISOString()
+      }
+    }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
       headers: {
