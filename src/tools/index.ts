@@ -311,17 +311,240 @@ export async function executeToolCall(
   parameters: Record<string, any>,
   context: ToolExecutionContext
 ): Promise<any> {
-  switch (toolName) {
-    case 'dataforseo_serp':
-      return await DataForSEO.getSerpResults(parameters, context.env);
+  try {
+    console.log(`Executing tool: ${toolName} with parameters:`, JSON.stringify(parameters));
+    
+    switch (toolName) {
+      // SERP Analysis Tools
+      case 'keyword_rankings':
+        try {
+          if (!parameters.domain || !parameters.keywords) {
+            throw new Error('Missing required parameters: domain and keywords are required');
+          }
+          
+          // Ensure keywords is an array
+          const keywords = Array.isArray(parameters.keywords) ? 
+                          parameters.keywords : 
+                          [parameters.keywords];
+          
+          // Use getSerpResults with corrected parameter format
+          const endpoint = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced";
+          
+          // Create a task for each keyword
+          const requestData = keywords.map(keyword => ({
+            keyword,
+            target: parameters.domain,
+            location_code: parameters.location_code || 2840,
+            language_code: parameters.language_code || 'en',
+            device: 'desktop'
+          }));
+          
+          console.log('Formatted keyword_rankings request:', JSON.stringify(requestData));
+          
+          try {
+            const response = await DataForSEO.makeDataForSEORequest(endpoint, requestData, context.env);
+            
+            return {
+              success: true,
+              result: response,
+              metadata: {
+                domain: parameters.domain,
+                keywords: keywords,
+                location_code: parameters.location_code || 2840,
+                language_code: parameters.language_code || 'en'
+              }
+            };
+          } catch (error) {
+            console.error("Error in SERP API call:", error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        } catch (error) {
+          console.error(`Error executing keyword_rankings: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
       
-    case 'dataforseo_keywords_data':
-      return await DataForSEO.getKeywordsDataAdvanced(parameters, context.env);
+      // Keyword Data Tools
+      case 'keywords_data':
+        try {
+          if (!parameters.keywords) {
+            throw new Error('Missing required parameter: keywords');
+          }
+          
+          // Ensure keywords is an array
+          const keywords = Array.isArray(parameters.keywords) ? 
+                          parameters.keywords : 
+                          [parameters.keywords];
+          
+          const keywordsRequest = {
+            ...parameters,
+            keywords: keywords
+          };
+          
+          return await DataForSEO.getKeywordsDataAdvanced(keywordsRequest, context.env);
+        } catch (error) {
+          console.error(`Error executing keywords_data: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
       
-    case 'dataforseo_backlinks':
-      return await DataForSEO.getBacklinksAdvanced(parameters, context.env);
+      case 'keyword_ideas':
+        try {
+          console.log('Executing keyword_ideas with parameters:', JSON.stringify(parameters));
+          
+          // Ensure parameters are correctly formatted
+          const keywordParam = typeof parameters.keyword === 'string' ? parameters.keyword : 
+                            (Array.isArray(parameters.keywords) && parameters.keywords.length > 0) ? 
+                            parameters.keywords[0] : null;
+          
+          if (!keywordParam) {
+            throw new Error('Missing required parameter: keyword');
+          }
+          
+          // Use the direct API endpoint interface instead of getKeywordIdeas
+          const endpoint = "https://api.dataforseo.com/v3/keywords_data/google/keywords_for_keywords/live";
+          
+          const requestData = [{
+            keyword: keywordParam,
+            location_code: parameters.location_code || 2840,
+            language_code: parameters.language_code || 'en'
+          }];
+          
+          console.log('Formatted request for DataForSEO:', JSON.stringify(requestData));
+          
+          try {
+            const response = await DataForSEO.makeDataForSEORequest(endpoint, requestData, context.env);
+            
+            return {
+              success: true,
+              result: response,
+              metadata: {
+                keyword: keywordParam,
+                location_code: parameters.location_code || 2840,
+                language_code: parameters.language_code || 'en'
+              }
+            };
+          } catch (error) {
+            console.error("Error in Keyword Ideas API call:", error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        } catch (error) {
+          console.error(`Error executing keyword_ideas: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
       
-    default:
-      throw new Error(`Unknown tool: ${toolName}`);
+      // Content Analysis Tools
+      case 'analyze_content':
+        try {
+          if (!parameters.url) {
+            throw new Error('Missing required parameter: url');
+          }
+          
+          return await DataForSEO.analyzeContent({
+            url: parameters.url,
+            keyword: parameters.keyword
+          }, context.env);
+        } catch (error) {
+          console.error(`Error executing analyze_content: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      // Backlinks Tools
+      case 'backlinks_summary':
+        try {
+          if (!parameters.target) {
+            throw new Error('Missing required parameter: target');
+          }
+          
+          return await DataForSEO.getBacklinksAdvanced({
+            target: parameters.target,
+            limit: parameters.limit || 100
+          }, context.env);
+        } catch (error) {
+          console.error(`Error executing backlinks_summary: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      // On-Page Tools
+      case 'analyze_onpage':
+        try {
+          if (!parameters.target) {
+            throw new Error('Missing required parameter: target');
+          }
+          
+          return await DataForSEO.analyzeOnPage({
+            target: parameters.target,
+            max_crawl_pages: parameters.max_crawl_pages || 10
+          }, context.env);
+        } catch (error) {
+          console.error(`Error executing analyze_onpage: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      // Legacy tool names (for backward compatibility)
+      case 'dataforseo_serp':
+        try {
+          return await DataForSEO.getSerpResults(parameters, context.env);
+        } catch (error) {
+          console.error(`Error executing dataforseo_serp: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      case 'dataforseo_keywords_data':
+        try {
+          return await DataForSEO.getKeywordsDataAdvanced(parameters, context.env);
+        } catch (error) {
+          console.error(`Error executing dataforseo_keywords_data: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      case 'dataforseo_backlinks':
+        try {
+          return await DataForSEO.getBacklinksAdvanced(parameters, context.env);
+        } catch (error) {
+          console.error(`Error executing dataforseo_backlinks: ${error instanceof Error ? error.message : String(error)}`);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      
+      default:
+        throw new Error(`Unknown tool: ${toolName}`);
+    }
+  } catch (error) {
+    console.error(`Error in executeToolCall: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
   }
 } 
